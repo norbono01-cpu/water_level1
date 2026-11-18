@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>نظام رصد مناسيب الترع | إدارة الري</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Cairo -->
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <!-- SheetJS for Excel Export -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <style>
+    body { font-family: 'Cairo', sans-serif; background-color: #f1f5f9; margin: 0; }
+    .tab-active { border-bottom: 3px solid #0284c7; color: #0284c7; font-weight: 700; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col text-slate-800">
+
+  <!-- تنبيه في حال فتح الملف محلياً بدون سيرفر -->
+  <div id="protocolWarning" class="hidden bg-red-600 text-white text-center p-3 text-sm font-bold">
+    تنبيه: أنت تفتح الملف مباشرة من الجهاز (file://). لكي يعمل نظام يجب رفعه على استضافة أو تشغيله عبر Live Server.
+  </div>
+
+  <div id="globalErrorBanner" class="hidden bg-amber-100 border-b border-amber-400 text-amber-900 px-4 py-3 text-sm text-center font-semibold"></div>
+
+  <!-- شاشة تسجيل الدخول -->
+  <section id="authSection" class="flex-grow flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-8 border border-slate-100">
+      <div class="text-center mb-6">
+        <div class="w-16 h-16 bg-sky-100 text-sky-600 rounded-2xl flex items-center justify-center mx-auto mb-3 text-3xl">
+          <i class="fa-solid fa-faucet-drip"></i>
+        </div>
+        <h1 class="text-2xl font-extrabold text-slate-800">نظام رصد مناسيب الترع</h1>
+        <p class="text-sm text-slate-500 mt-1">سجل الدخول للوصول إلى بيانات هندستك</p>
+        <div id="connectionStatus" class="mt-2 inline-flex items-center gap-1.5 text-xs bg-slate-100 text-slate-600 px-3 py-1 rounded-full">
+          <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+          <span>جاري تهيئة الاتصال بقاعدة البيانات...</span>
+        </div>
+      </div>
+
+      <form id="loginForm" class="space-y-4">
+        <div>
+          <label class="block text-sm font-semibold mb-1">البريد الإلكتروني</label>
+          <input type="email" id="loginEmail" required placeholder="eng@irrigation.gov.eg"
+            class="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-sky-500 focus:outline-none text-left" dir="ltr">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold mb-1">كلمة المرور</label>
+          <input type="password" id="loginPassword" required placeholder="••••••••"
+            class="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-sky-500 focus:outline-none text-left" dir="ltr">
+        </div>
+        <div id="authError" class="hidden text-red-600 text-sm bg-red-50 p-3 rounded-lg border border-red-200"></div>
+        <button type="submit" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold py-3 rounded-lg transition shadow-md">
+          تسجيل الدخول
+        </button>
+      </form>
+
+      <div class="mt-6 pt-4 border-t border-slate-100 text-center">
+        <button type="button" id="toggleRegisterBtn" class="text-sm text-sky-600 hover:underline font-semibold">
+          ليس لديك حساب؟ إنشاء حساب جديد لهندسة
+        </button>
+      </div>
+
+      <!-- نموذج إنشاء حساب جديد -->
+      <form id="registerForm" class="hidden space-y-4 mt-4 pt-4 border-t border-slate-200">
+        <h3 class="font-bold text-slate-700 text-center">تسجيل حساب مهندس / هندسة جديدة</h3>
+        <div>
+          <label class="block text-sm font-semibold mb-1">اسم الهندسة التابع لها</label>
+          <input type="text" id="regDistrict" required placeholder="مثال: هندسة ري أسوان"
+            class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold mb-1">البريد الإلكتروني</label>
+          <input type="email" id="regEmail" required
+            class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-sky-500 focus:outline-none text-left" dir="ltr">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold mb-1">كلمة المرور (6 أحرف على الأقل)</label>
+          <input type="password" id="regPassword" required minlength="6"
+            class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-sky-500 focus:outline-none text-left" dir="ltr">
+        </div>
+        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-lg transition">
+          إنشاء الحساب والدخول
+        </button>
+      </form>
+    </div>
+  </section>
+
+  <!-- التطبيق الرئيسي -->
+  <div id="appSection" class="hidden flex-grow flex flex-col">
+    <!-- الهيدر -->
+    <header class="bg-slate-900 text-white shadow-md">
+      <div class="max-w-7xl mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div class="bg-sky-500 p-2.5 rounded-xl text-white">
+            <i class="fa-solid fa-water text-xl"></i>
+          </div>
+          <div>
+            <h1 class="text-lg font-bold leading-tight">منظومة رصد مناسيب الترع</h1>
+            <div class="flex items-center gap-2 text-xs text-sky-300 mt-0.5">
+              <i class="fa-solid fa-location-dot"></i>
+              <span id="userDistrictBadge" class="font-semibold">جاري التحميل...</span>
+              <span id="adminBadge" class="hidden bg-amber-500 text-slate-900 px-2 py-0.5 rounded font-bold">مدير النظام (Admin)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <button id="exportExcelBtn" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition shadow">
+            <i class="fa-solid fa-file-excel"></i>
+            <span>تصدير Excel (للأدمن)</span>
+          </button>
+          <button id="logoutBtn" class="bg-slate-800 hover:bg-red-600 text-slate-200 hover:text-white px-3.5 py-2 rounded-lg text-sm font-semibold transition">
+            <i class="fa-solid fa-right-from-bracket ml-1"></i> خروج
+          </button>
+        </div>
+      </div>
+
+      <!-- شريط التنقل بين الصفحات -->
+      <nav class="bg-white text-slate-600 border-b border-slate-200">
+        <div class="max-w-7xl mx-auto px-4 flex gap-6 overflow-x-auto">
+          <button type="button" onclick="switchPage('mainCanalsPage')" id="tab-mainCanalsPage" class="py-3.5 px-2 text-sm whitespace-nowrap tab-active transition">
+            <i class="fa-solid fa-river ml-1.5"></i> الترع الرئيسية (الفم)
+          </button>
+          <button type="button" onclick="switchPage('branchCanalsPage')" id="tab-branchCanalsPage" class="py-3.5 px-2 text-sm whitespace-nowrap hover:text-sky-600 transition">
+            <i class="fa-solid fa-code-branch ml-1.5"></i> الترع الفرعية (الفم والنهايات)
+          </button>
+          <button type="button" onclick="switchPage('settingsPage')" id="tab-settingsPage" class="py-3.5 px-2 text-sm whitespace-nowrap hover:text-sky-600 transition">
+            <i class="fa-solid fa-building-user ml-1.5"></i> بيانات الهندسة
+          </button>
+        </div>
+      </nav>
+    </header>
+
+    <!-- المحتوى الرئيسي -->
+    <main class="max-w-7xl w-full mx-auto px-4 py-6 flex-grow">
+
+      <!-- فلتر الأدمن -->
+      <div id="adminFilterBar" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-2 text-amber-900 font-bold text-sm">
+          <i class="fa-solid fa-shield-halved text-amber-600 text-lg"></i>
+          <span>وضع المشرف العام: يمكنك استعراض بيانات جميع الهندسات وتصديرها.</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="text-sm font-semibold text-slate-700">تصفية حسب الهندسة:</label>
+          <select id="adminDistrictFilter" class="bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-sm font-semibold focus:outline-none">
+            <option value="ALL">جميع الهندسات</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- الصفحة 1: الترع الرئيسية -->
+      <div id="mainCanalsPage" class="space-y-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="space-y-6">
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+              <h2 class="font-bold text-slate-800 mb-3 flex items-center gap-2 border-b pb-2">
+                <i class="fa-solid fa-plus-circle text-sky-600"></i>
+                <span>1. إضافة ترعة رئيسية للهندسة</span>
+              </h2>
+              <form id="addMainCanalForm" class="space-y-3">
+                <div>
+                  <label class="block text-xs font-bold text-slate-600 mb-1">اسم الهندسة (قابل للتعديل)</label>
+                  <!-- تم جعله قابلاً للكتابة والتعديل لتجنب مشكلة عدم التفعيل -->
+                  <input type="text" id="mainDistrictInput" required placeholder="أدخل اسم الهندسة هنا"
+                    class="w-full bg-white px-3 py-2 rounded-lg border border-slate-300 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-600 mb-1">اسم الترعة الرئيسية</label>
+                  <input type="text" id="newMainCanalName" required placeholder="مثال: ترعة الكلابية الرئيسية"
+                    class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                </div>
+                <button type="submit" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-2 rounded-lg text-sm transition">
+                  حفظ الترعة الرئيسية
+                </button>
+              </form>
+            </div>
+
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-sky-200">
+              <h2 class="font-bold text-sky-800 mb-3 flex items-center gap-2 border-b border-sky-100 pb-2">
+                <i class="fa-solid fa-gauge-high text-sky-600"></i>
+                <span>2. رصد منسوب الفم اليومي (رئيسية)</span>
+              </h2>
+              <form id="recordMainLevelForm" class="space-y-3">
+                <div>
+                  <label class="block text-xs font-bold text-slate-600 mb-1">اختر الترعة الرئيسية</label>
+                  <select id="selectMainCanal" required class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                    <option value="">-- اختر الترعة --</option>
+                  </select>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">التاريخ</label>
+                    <input type="date" id="mainLevelDate" required class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">منسوب الفم (متر)</label>
+                    <input type="number" step="0.01" id="mainIntakeLevel" required placeholder="00.00"
+                      class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm font-bold text-sky-700">
+                  </div>
+                </div>
+                <button type="submit" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold py-2.5 rounded-lg text-sm transition shadow">
+                  تسجيل منسوب الترعة الرئيسية
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <div class="lg:col-span-2 bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-4 border-b pb-3">
+              <h2 class="font-bold text-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-list-check text-sky-600"></i>
+                <span>سجل مناسيب الترع الرئيسية</span>
+              </h2>
+              <span id="mainRecordsCount" class="text-xs bg-sky-100 text-sky-800 font-bold px-2.5 py-1 rounded-full">0 سجل</span>
+            </div>
+
+            <div class="overflow-x-auto flex-grow">
+              <table class="w-full text-sm text-right border-collapse">
+                <thead>
+                  <tr class="bg-slate-100 text-slate-700 border-b border-slate-200">
+                    <th class="p-3 font-bold">التاريخ</th>
+                    <th class="p-3 font-bold">الهندسة</th>
+                    <th class="p-3 font-bold">اسم الترعة الرئيسية</th>
+                    <th class="p-3 font-bold text-sky-700">منسوب الفم (م)</th>
+                    <th class="p-3 font-bold text-center">إجراء</th>
+                  </tr>
+                </thead>
+                <tbody id="mainLevelsTableBody" class="divide-y divide-slate-100">
+                  <tr><td colspan="5" class="text-center py-8 text-slate-400">لا توجد بيانات مسجلة حتى الآن</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- الصفحة 2: الترع الفرعية -->
+      <div id="branchCanalsPage" class="hidden space-y-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="space-y-6">
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+              <h2 class="font-bold text-slate-800 mb-3 flex items-center gap-2 border-b pb-2">
+                <i class="fa-solid fa-plus-circle text-teal-600"></i>
+                <span>1. إضافة ترعة فرعية للهندسة</span>
+              </h2>
+              <form id="addBranchCanalForm" class="space-y-3">
+                <div>
+                  <label class="block text-xs font-bold text-slate-600 mb-1">اسم الهندسة (قابل للتعديل)</label>
+                  <input type="text" id="branchDistrictInput" required placeholder="أدخل اسم الهندسة هنا"
+                    class="w-full bg-white px-3 py-2 rounded-lg border border-slate-300 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-600 mb-1">اسم الترعة الفرعية</label>
+                  <input type="text" id="newBranchCanalName" required placeholder="مثال: ترعة الحلة الفرعية"
+                    class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                </div>
+                <button type="submit" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-2 rounded-lg text-sm transition">
+                  حفظ الترعة الفرعية
+                </button>
+              </form>
+            </div>
+
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-teal-200">
+              <h2 class="font-bold text-teal-800 mb-3 flex items-center gap-2 border-b border-teal-100 pb-2">
+                <i class="fa-solid fa-ruler-combined text-teal-600"></i>
+                <span>2. رصد مناسيب الفم والنهاية (فرعية)</span>
+              </h2>
+              <form id="recordBranchLevelForm" class="space-y-3">
+                <div>
+                  <label class="block text-xs font-bold text-slate-600 mb-1">اختر الترعة الفرعية</label>
+                  <select id="selectBranchCanal" required class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                    <option value="">-- اختر الترعة الفرعية --</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-600 mb-1">التاريخ</label>
+                  <input type="date" id="branchLevelDate" required class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">منسوب الفم (متر)</label>
+                    <input type="number" step="0.01" id="branchIntakeLevel" required placeholder="00.00"
+                      class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm font-bold text-teal-700">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">منسوب النهاية (متر)</label>
+                    <input type="number" step="0.01" id="branchEndLevel" required placeholder="00.00"
+                      class="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm font-bold text-indigo-700">
+                  </div>
+                </div>
+                <button type="submit" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 rounded-lg text-sm transition shadow">
+                  تسجيل مناسيب الترعة الفرعية
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <div class="lg:col-span-2 bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-4 border-b pb-3">
+              <h2 class="font-bold text-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-table-list text-teal-600"></i>
+                <span>سجل مناسيب الترع الفرعية (الفم والنهايات)</span>
+              </h2>
+              <span id="branchRecordsCount" class="text-xs bg-teal-100 text-teal-800 font-bold px-2.5 py-1 rounded-full">0 سجل</span>
+            </div>
+
+            <div class="overflow-x-auto flex-grow">
+              <table class="w-full text-sm text-right border-collapse">
+                <thead>
+                  <tr class="bg-slate-100 text-slate-700 border-b border-slate-200">
+                    <th class="p-3 font-bold">التاريخ</th>
+                    <th class="p-3 font-bold">الهندسة</th>
+                    <th class="p-3 font-bold">اسم الترعة الفرعية</th>
+                    <th class="p-3 font-bold text-teal-700">منسوب الفم (م)</th>
+                    <th class="p-3 font-bold text-indigo-700">منسوب النهاية (م)</th>
+                    <th class="p-3 font-bold text-center">إجراء</th>
+                  </tr>
+                </thead>
+                <tbody id="branchLevelsTableBody" class="divide-y divide-slate-100">
+                  <tr><td colspan="6" class="text-center py-8 text-slate-400">لا توجد بيانات مسجلة حتى الآن</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- الصفحة 3: الإعدادات -->
+      <div id="settingsPage" class="hidden max-w-xl mx-auto">
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+          <h2 class="font-bold text-lg text-slate-800 border-b pb-2">إعدادات اسم الهندسة</h2>
+          <p class="text-sm text-slate-500">يتم ربط جميع الترع والمناسيب المدخلة باسم الهندسة المسجل أدناه.</p>
+          <form id="updateDistrictForm" class="space-y-4">
+            <div>
+              <label class="block text-sm font-bold text-slate-700 mb-1">اسم الهندسة</label>
+              <input type="text" id="settingsDistrictName" required class="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+            </div>
+            <button type="submit" class="bg-sky-600 hover:bg-sky-700 text-white font-bold px-6 py-2.5 rounded-lg text-sm transition">
+              تحديث اسم الهندسة
+            </button>
+          </form>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script>
+    if (window.location.protocol === 'file:') {
+      document.getElementById('protocolWarning').classList.remove('hidden');
+    }
+    window.switchPage = function(pageId) {
+      ['mainCanalsPage', 'branchCanalsPage', 'settingsPage'].forEach(id => {
+        document.getElementById(id).classList.add('hidden');
+        document.getElementById('tab-' + id).classList.remove('tab-active');
+      });
+      document.getElementById(pageId).classList.remove('hidden');
+      document.getElementById('tab-' + pageId).classList.add('tab-active');
+    };
+  </script>
+
+  <!-- Firebase SDKs & App Logic -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { 
+      getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, 
+      onAuthStateChanged, signOut 
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { 
+      getFirestore, collection, addDoc, getDoc, setDoc, doc, 
+      deleteDoc, query, where, onSnapshot, serverTimestamp 
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    const statusEl = document.getElementById('connectionStatus');
+    const errorBanner = document.getElementById('globalErrorBanner');
+
+    function showBannerError(msg) {
+      errorBanner.textContent = msg;
+      errorBanner.classList.remove('hidden');
+    }
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDDX0MwEwFrBzXhd6ef2yHptIxH8NM7qoc",
+      authDomain: "water-level-a9755.firebaseapp.com",
+      projectId: "water-level-a9755",
+      storageBucket: "water-level-a9755.firebasestorage.app",
+      messagingSenderId: "1027052897270",
+      appId: "1:1027052897270:web:020588d18b71ecc573bdd7",
+      measurementId: "G-WY04ZZ6P4S"
+    };
+
+    let app, auth, db;
+    try {
+      app = initializeApp(firebaseConfig);
+      auth = getAuth(app);
+      db = getFirestore(app);
+      statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span><span class="text-emerald-700 font-semibold">متصل بقاعدة البيانات جاهز للدخول</span>`;
+    } catch (initErr) {
+      statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-red-500"></span><span class="text-red-700 font-semibold">فشل الاتصال بـ Firebase</span>`;
+      showBannerError("خطأ في تهيئة Firebase: " + initErr.message);
+    }
+
+    let currentUser = null;
+    let userProfile = { districtName: "", role: "engineer" };
+    let allMainLevels = [];
+    let allBranchLevels = [];
+    let unsubCanals = null;
+    let unsubMainLevels = null;
+    let unsubBranchLevels = null;
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    document.getElementById('mainLevelDate').value = todayStr;
+    document.getElementById('branchLevelDate').value = todayStr;
+
+    document.getElementById('toggleRegisterBtn').addEventListener('click', () => {
+      document.getElementById('registerForm').classList.toggle('hidden');
+    });
+
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('loginEmail').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      const errBox = document.getElementById('authError');
+      errBox.classList.add('hidden');
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+      } catch (err) {
+        errBox.textContent = "خطأ في تسجيل الدخول: تأكد من صحة البريد وكلمة المرور (" + err.code + ")";
+        errBox.classList.remove('hidden');
+      }
+    });
+
+    document.getElementById('registerForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const districtName = document.getElementById('regDistrict').value.trim();
+      const email = document.getElementById('regEmail').value.trim();
+      const password = document.getElementById('regPassword').value;
+      const errBox = document.getElementById('authError');
+      errBox.classList.add('hidden');
+      try {
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        await setDoc(doc(db, "users", cred.user.uid), {
+          email,
+          districtName,
+          role: "engineer",
+          createdAt: serverTimestamp()
+        });
+      } catch (err) {
+        errBox.textContent = "تعذر إنشاء الحساب: " + err.message;
+        errBox.classList.remove('hidden');
+      }
+    });
+
+    document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
+
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        currentUser = user;
+        try {
+          const userSnap = await getDoc(doc(db, "users", user.uid));
+          if (userSnap.exists() && userSnap.data().districtName) {
+            userProfile = userSnap.data();
+          } else {
+            userProfile = { districtName: "هندسة ري مركز أسوان", role: "engineer" };
+            await setDoc(doc(db, "users", user.uid), {
+              email: user.email,
+              districtName: userProfile.districtName,
+              role: "engineer"
+            }, { merge: true });
+          }
+          setupUIForUser();
+          listenToData();
+        } catch (dbErr) {
+          showBannerError("تعذر قراءة بيانات المستخدم من Firestore: " + dbErr.message);
+          userProfile = { districtName: "هندسة ري مركز أسوان", role: "engineer" };
+          setupUIForUser();
+        }
+      } else {
+        currentUser = null;
+        if (unsubCanals) unsubCanals();
+        if (unsubMainLevels) unsubMainLevels();
+        if (unsubBranchLevels) unsubBranchLevels();
+        document.getElementById('appSection').classList.add('hidden');
+        document.getElementById('authSection').classList.remove('hidden');
+      }
+    });
+
+    function setupUIForUser() {
+      document.getElementById('authSection').classList.add('hidden');
+      document.getElementById('appSection').classList.remove('hidden');
+
+      const isAdmin = userProfile.role === 'admin';
+      const currentDistrict = userProfile.districtName || "";
+
+      document.getElementById('userDistrictBadge').textContent = currentDistrict;
+      document.getElementById('mainDistrictInput').value = currentDistrict;
+      document.getElementById('branchDistrictInput').value = currentDistrict;
+      document.getElementById('settingsDistrictName').value = currentDistrict;
+
+      if (isAdmin) {
+        document.getElementById('adminBadge').classList.remove('hidden');
+        document.getElementById('exportExcelBtn').classList.remove('hidden');
+        document.getElementById('adminFilterBar').classList.remove('hidden');
+      } else {
+        document.getElementById('adminBadge').classList.add('hidden');
+        document.getElementById('exportExcelBtn').classList.add('hidden');
+        document.getElementById('adminFilterBar').classList.add('hidden');
+      }
+    }
+
+    // مزامنة تعديل اسم الهندسة في الحقول تلقائياً
+    document.getElementById('mainDistrictInput').addEventListener('input', (e) => {
+      document.getElementById('branchDistrictInput').value = e.target.value;
+      document.getElementById('settingsDistrictName').value = e.target.value;
+    });
+
+    document.getElementById('branchDistrictInput').addEventListener('input', (e) => {
+      document.getElementById('mainDistrictInput').value = e.target.value;
+      document.getElementById('settingsDistrictName').value = e.target.value;
+    });
+
+    document.getElementById('updateDistrictForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const newName = document.getElementById('settingsDistrictName').value.trim();
+      if (!newName) return;
+      await setDoc(doc(db, "users", currentUser.uid), { districtName: newName }, { merge: true });
+      userProfile.districtName = newName;
+      setupUIForUser();
+      alert("تم تحديث اسم الهندسة بنجاح!");
+    });
+
+    function listenToData() {
+      const isAdmin = userProfile.role === 'admin';
+
+      const canalsQuery = isAdmin 
+        ? query(collection(db, "canals")) 
+        : query(collection(db, "canals"), where("districtId", "==", currentUser.uid));
+
+      unsubCanals = onSnapshot(canalsQuery, (snapshot) => {
+        const mainSelect = document.getElementById('selectMainCanal');
+        const branchSelect = document.getElementById('selectBranchCanal');
+        mainSelect.innerHTML = '<option value="">-- اختر الترعة الرئيسية --</option>';
+        branchSelect.innerHTML = '<option value="">-- اختر الترعة الفرعية --</option>';
+
+        snapshot.forEach(docSnap => {
+          const c = docSnap.data();
+          const opt = document.createElement('option');
+          opt.value = docSnap.id;
+          opt.textContent = isAdmin ? `${c.name} (${c.districtName})` : c.name;
+          opt.dataset.name = c.name;
+          opt.dataset.districtName = c.districtName;
+          opt.dataset.districtId = c.districtId;
+
+          if (c.type === 'main') mainSelect.appendChild(opt);
+          if (c.type === 'branch') branchSelect.appendChild(opt);
+        });
+      }, (err) => showBannerError("خطأ في جلب الترع: " + err.message));
+
+      const mainLevelsQuery = isAdmin
+        ? query(collection(db, "main_levels"))
+        : query(collection(db, "main_levels"), where("districtId", "==", currentUser.uid));
+
+      unsubMainLevels = onSnapshot(mainLevelsQuery, (snapshot) => {
+        allMainLevels = [];
+        snapshot.forEach(d => allMainLevels.push({ id: d.id, ...d.data() }));
+        allMainLevels.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+        updateAdminFilterOptions();
+        renderMainLevelsTable();
+      }, (err) => showBannerError("خطأ في جلب مناسيب الرئيسية: " + err.message));
+
+      const branchLevelsQuery = isAdmin
+        ? query(collection(db, "branch_levels"))
+        : query(collection(db, "branch_levels"), where("districtId", "==", currentUser.uid));
+
+      unsubBranchLevels = onSnapshot(branchLevelsQuery, (snapshot) => {
+        allBranchLevels = [];
+        snapshot.forEach(d => allBranchLevels.push({ id: d.id, ...d.data() }));
+        allBranchLevels.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+        updateAdminFilterOptions();
+        renderBranchLevelsTable();
+      }, (err) => showBannerError("خطأ في جلب مناسيب الفرعية: " + err.message));
+    }
+
+    function updateAdminFilterOptions() {
+      if (userProfile.role !== 'admin') return;
+      const filterSelect = document.getElementById('adminDistrictFilter');
+      const currentVal = filterSelect.value;
+      const districts = new Set([
+        ...allMainLevels.map(i => i.districtName),
+        ...allBranchLevels.map(i => i.districtName)
+      ]);
+      filterSelect.innerHTML = '<option value="ALL">جميع الهندسات</option>';
+      districts.forEach(d => {
+        if (d) {
+          const opt = document.createElement('option');
+          opt.value = d;
+          opt.textContent = d;
+          filterSelect.appendChild(opt);
+        }
+      });
+      filterSelect.value = districts.has(currentVal) ? currentVal : "ALL";
+    }
+
+    document.getElementById('adminDistrictFilter').addEventListener('change', () => {
+      renderMainLevelsTable();
+      renderBranchLevelsTable();
+    });
+
+    document.getElementById('addMainCanalForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('newMainCanalName').value.trim();
+      const currentDist = document.getElementById('mainDistrictInput').value.trim();
+      if (!name || !currentDist) return;
+
+      try {
+        await setDoc(doc(db, "users", currentUser.uid), { districtName: currentDist }, { merge: true });
+        userProfile.districtName = currentDist;
+
+        await addDoc(collection(db, "canals"), {
+          name,
+          type: "main",
+          districtId: currentUser.uid,
+          districtName: currentDist,
+          createdAt: serverTimestamp()
+        });
+        document.getElementById('newMainCanalName').value = "";
+        alert("تمت إضافة الترعة الرئيسية وتحديث اسم الهندسة بنجاح");
+      } catch (err) {
+        alert("خطأ أثناء الحفظ: " + err.message);
+      }
+    });
+
+    document.getElementById('recordMainLevelForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const select = document.getElementById('selectMainCanal');
+      const selectedOpt = select.options[select.selectedIndex];
+      if (!select.value) return;
+
+      const currentDist = document.getElementById('mainDistrictInput').value.trim() || userProfile.districtName;
+
+      try {
+        await addDoc(collection(db, "main_levels"), {
+          canalId: select.value,
+          canalName: selectedOpt.dataset.name,
+          districtId: selectedOpt.dataset.districtId || currentUser.uid,
+          districtName: selectedOpt.dataset.districtName || currentDist,
+          date: document.getElementById('mainLevelDate').value,
+          intakeLevel: parseFloat(document.getElementById('mainIntakeLevel').value),
+          createdAt: serverTimestamp()
+        });
+        document.getElementById('mainIntakeLevel').value = "";
+        alert("تم تسجيل المنسوب بنجاح");
+      } catch (err) {
+        alert("خطأ أثناء تسجيل المنسوب: " + err.message);
+      }
+    });
+
+    document.getElementById('addBranchCanalForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('newBranchCanalName').value.trim();
+      const currentDist = document.getElementById('branchDistrictInput').value.trim();
+      if (!name || !currentDist) return;
+
+      try {
+        await setDoc(doc(db, "users", currentUser.uid), { districtName: currentDist }, { merge: true });
+        userProfile.districtName = currentDist;
+
+        await addDoc(collection(db, "canals"), {
+          name,
+          type: "branch",
+          districtId: currentUser.uid,
+          districtName: currentDist,
+          createdAt: serverTimestamp()
+        });
+        document.getElementById('newBranchCanalName').value = "";
+        alert("تمت إضافة الترعة الفرعية وتحديث اسم الهندسة بنجاح");
+      } catch (err) {
+        alert("خطأ أثناء الحفظ: " + err.message);
+      }
+    });
+
+    document.getElementById('recordBranchLevelForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const select = document.getElementById('selectBranchCanal');
+      const selectedOpt = select.options[select.selectedIndex];
+      if (!select.value) return;
+
+      const currentDist = document.getElementById('branchDistrictInput').value.trim() || userProfile.districtName;
+
+      try {
+        await addDoc(collection(db, "branch_levels"), {
+          canalId: select.value,
+          canalName: selectedOpt.dataset.name,
+          districtId: selectedOpt.dataset.districtId || currentUser.uid,
+          districtName: selectedOpt.dataset.districtName || currentDist,
+          date: document.getElementById('branchLevelDate').value,
+          intakeLevel: parseFloat(document.getElementById('branchIntakeLevel').value),
+          endLevel: parseFloat(document.getElementById('branchEndLevel').value),
+          createdAt: serverTimestamp()
+        });
+        document.getElementById('branchIntakeLevel').value = "";
+        document.getElementById('branchEndLevel').value = "";
+        alert("تم تسجيل مناسيب الترعة الفرعية بنجاح");
+      } catch (err) {
+        alert("خطأ أثناء تسجيل المناسيب: " + err.message);
+      }
+    });
+
+    function renderMainLevelsTable() {
+      const tbody = document.getElementById('mainLevelsTableBody');
+      const filterVal = document.getElementById('adminDistrictFilter').value;
+      const filtered = (userProfile.role === 'admin' && filterVal !== 'ALL')
+        ? allMainLevels.filter(r => r.districtName === filterVal)
+        : allMainLevels;
+
+      document.getElementById('mainRecordsCount').textContent = `${filtered.length} سجل`;
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-slate-400">لا توجد بيانات مسجلة حتى الآن</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(row => `
+        <tr class="hover:bg-slate-50 transition">
+          <td class="p-3 font-semibold text-slate-600">${row.date}</td>
+          <td class="p-3 text-slate-600">${row.districtName}</td>
+          <td class="p-3 font-bold text-slate-800">${row.canalName}</td>
+          <td class="p-3 font-extrabold text-sky-700">${Number(row.intakeLevel).toFixed(2)}</td>
+          <td class="p-3 text-center">
+            <button onclick="deleteRecord('main_levels', '${row.id}')" class="text-red-500 hover:text-red-700 p-1" title="حذف">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function renderBranchLevelsTable() {
+      const tbody = document.getElementById('branchLevelsTableBody');
+      const filterVal = document.getElementById('adminDistrictFilter').value;
+      const filtered = (userProfile.role === 'admin' && filterVal !== 'ALL')
+        ? allBranchLevels.filter(r => r.districtName === filterVal)
+        : allBranchLevels;
+
+      document.getElementById('branchRecordsCount').textContent = `${filtered.length} سجل`;
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-slate-400">لا توجد بيانات مسجلة حتى الآن</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(row => `
+        <tr class="hover:bg-slate-50 transition">
+          <td class="p-3 font-semibold text-slate-600">${row.date}</td>
+          <td class="p-3 text-slate-600">${row.districtName}</td>
+          <td class="p-3 font-bold text-slate-800">${row.canalName}</td>
+          <td class="p-3 font-extrabold text-teal-700">${Number(row.intakeLevel).toFixed(2)}</td>
+          <td class="p-3 font-extrabold text-indigo-700">${Number(row.endLevel).toFixed(2)}</td>
+          <td class="p-3 text-center">
+            <button onclick="deleteRecord('branch_levels', '${row.id}')" class="text-red-500 hover:text-red-700 p-1" title="حذف">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    window.deleteRecord = async (collectionName, id) => {
+      if (confirm("هل أنت متأكد من حذف هذا السجل؟")) {
+        await deleteDoc(doc(db, collectionName, id));
+      }
+    };
+
+    document.getElementById('exportExcelBtn').addEventListener('click', () => {
+      if (userProfile.role !== 'admin') return;
+
+      const wb = XLSX.utils.book_new();
+
+      const mainSheetData = allMainLevels.map(r => ({
+        "التاريخ": r.date,
+        "اسم الهندسة": r.districtName,
+        "اسم الترعة الرئيسية": r.canalName,
+        "منسوب الفم (متر)": r.intakeLevel
+      }));
+      const wsMain = XLSX.utils.json_to_sheet(mainSheetData);
+      XLSX.utils.book_append_sheet(wb, wsMain, "الترع الرئيسية");
+
+      const branchSheetData = allBranchLevels.map(r => ({
+        "التاريخ": r.date,
+        "اسم الهندسة": r.districtName,
+        "اسم الترعة الفرعية": r.canalName,
+        "منسوب الفم (متر)": r.intakeLevel,
+        "منسوب النهاية (متر)": r.endLevel
+      }));
+      const wsBranch = XLSX.utils.json_to_sheet(branchSheetData);
+      XLSX.utils.book_append_sheet(wb, wsBranch, "الترع الفرعية");
+
+      XLSX.writeFile(wb, `تقرير_مناسيب_الترع_${todayStr}.xlsx`);
+    });
+  </script>
+</body>
+</html>
